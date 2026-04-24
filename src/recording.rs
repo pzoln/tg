@@ -5,6 +5,7 @@
 
 use std::error::Error;
 use std::fs;
+use std::path::Path;
 
 use textagram::app::{
     Action, AppKeyCode, AppKeyEvent, AppKeyModifiers, CanvasSnapshot, SnapshotCropOptions,
@@ -58,14 +59,19 @@ pub fn keyspec_for_processed_key(key_event: AppKeyEvent, action: Action) -> Opti
 
 #[cfg_attr(test, allow(dead_code))]
 pub fn write_e2e_recording(
+    path: &Path,
     keys: &str,
     given: &[String],
     clipboard: Option<&str>,
     expect: &[String],
 ) -> Result<String, Box<dyn Error>> {
-    let path = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../spec/e2e/recording.md");
-    fs::create_dir_all(path.parent().expect("recording path parent"))?;
-    fs::write(&path, format_e2e_recording(keys, given, clipboard, expect))?;
+    if let Some(parent) = path
+        .parent()
+        .filter(|parent| !parent.as_os_str().is_empty())
+    {
+        fs::create_dir_all(parent)?;
+    }
+    fs::write(path, format_e2e_recording(keys, given, clipboard, expect))?;
     Ok(path.display().to_string())
 }
 

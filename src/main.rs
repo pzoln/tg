@@ -3,7 +3,9 @@ mod terminal_input;
 mod terminal_render;
 
 use std::error::Error;
+use std::ffi::OsString;
 use std::io;
+use std::path::{Path, PathBuf};
 use std::time::Duration;
 
 use arboard::Clipboard;
@@ -30,14 +32,16 @@ use textagram::{
 };
 
 fn main() -> Result<(), Box<dyn Error>> {
-    let trace_path = init_tracing_to_file(None);
+    let trace_path = init_tracing_to_file(default_trace_path().as_deref());
+    let recording_path = default_recording_path();
     let mut session = TerminalSession::new()?;
-    run_app(&mut session, &trace_path)
+    run_app(&mut session, trace_path.as_deref(), &recording_path)
 }
 
 fn run_app(
     session: &mut TerminalSession,
-    trace_path: &std::path::Path,
+    trace_path: Option<&Path>,
+    recording_path: &Path,
 ) -> Result<(), Box<dyn Error>> {
     let size = session.terminal_mut().size()?;
     let mut app = Session::new(size.width, size.height);
@@ -184,13 +188,16 @@ fn run_app(
                             recording_lines_for_size(&baseline_snapshot, recorded_size);
                         let final_lines = recording_lines_for_size(&final_snapshot, recorded_size);
                         let path = write_e2e_recording(
+                            recording_path,
                             &recorded_keys,
                             &initial_lines,
                             baseline_clipboard.as_deref(),
                             &final_lines,
                         )?;
                         eprintln!("Recorded session saved to {path}");
-                        eprintln!("Debug trace saved to {}", trace_path.display());
+                        if let Some(trace_path) = trace_path {
+                            eprintln!("Debug trace saved to {}", trace_path.display());
+                        }
                         return Ok(());
                     }
                     if action.exit_requested() {
@@ -407,5 +414,92 @@ impl Drop for TerminalSession {
         let backend = self.terminal.backend_mut();
         let _ = execute!(backend, LeaveAlternateScreen);
         let _ = self.terminal.show_cursor();
+    }
+}
+
+fn textagram_dev_env_enabled() -> bool {
+    textagram_dev_env_enabled_from(std::env::var_os("TEXTAGRAM_DEV_ENV"))
+}
+
+fn textagram_dev_env_enabled_from(value: Option<OsString>) -> bool {
+    matches!(value, Some(value) if !value.is_empty())
+}
+
+fn default_trace_path() -> Option<PathBuf> {
+    default_trace_path_for(
+        textagram_dev_env_enabled(),
+        std::env::current_dir().ok().as_deref(),
+    )
+}
+
+fn default_trace_path_for(dev_env: bool, cwd: Option<&Path>) -> Option<PathBuf> {
+    dev_env.then(|| base_output_dir(cwd).join("spec/e2e/recording.trace"))
+}
+
+fn default_recording_path() -> PathBuf {
+    default_recording_path_for(
+        textagram_dev_env_enabled(),
+        std::env::current_dir().ok().as_deref(),
+    )
+}
+
+fn default_recording_path_for(dev_env: bool, cwd: Option<&Path>) -> PathBuf {
+    if dev_env {
+        base_output_dir(cwd).join("spec/e2e/recording.md")
+    } else {
+        base_output_dir(cwd).join("tg-recording.md")
+    }
+}
+
+fn base_output_dir(cwd: Option<&Path>) -> PathBuf {
+    cwd.map(Path::to_path_buf)
+        .unwrap_or_else(|| PathBuf::from("."))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn textagram_dev_env_is_disabled_when_unset_or_empty() {
+        assert!(!textagram_dev_env_enabled_from(None));
+        assert!(!textagram_dev_env_enabled_from(Some(OsString::new())));
+    }
+
+    #[test]
+    fn textagram_dev_env_is_enabled_when_present_and_non_empty() {
+        assert!(textagram_dev_env_enabled_from(Some(OsString::from("1"))));
+    }
+
+    #[test]
+    fn default_trace_path_is_disabled_outside_dev_env() {
+        assert_eq!(
+            default_trace_path_for(false, Some(Path::new("/tmp/textagram-dev"))),
+            None
+        );
+    }
+
+    #[test]
+    fn default_trace_path_uses_repo_relative_location_in_dev_env() {
+        assert_eq!(
+            default_trace_path_for(true, Some(Path::new("/tmp/textagram-dev"))),
+            Some(PathBuf::from("/tmp/textagram-dev/spec/e2e/recording.trace"))
+        );
+    }
+
+    #[test]
+    fn default_recording_path_uses_cwd_by_default() {
+        assert_eq!(
+            default_recording_path_for(false, Some(Path::new("/tmp/textagram-dev"))),
+            PathBuf::from("/tmp/textagram-dev/tg-recording.md")
+        );
+    }
+
+    #[test]
+    fn default_recording_path_uses_repo_relative_location_in_dev_env() {
+        assert_eq!(
+            default_recording_path_for(true, Some(Path::new("/tmp/textagram-dev"))),
+            PathBuf::from("/tmp/textagram-dev/spec/e2e/recording.md")
+        );
     }
 }
