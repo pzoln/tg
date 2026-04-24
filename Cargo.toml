@@ -1,0 +1,16 @@
+[package]
+name = "tg"
+version = "0.1.0"
+edition = "2021"
+
+[[bin]]
+name = "tg"
+path = "src/main.rs"
+test = false
+
+[dependencies]
+arboard = "=3.2.0"
+crossterm = "0.26"
+ratatui = { version = "0.26", default-features = false, features = ["crossterm"] }
+textagram = { path = "../textagram" }
+tracing = "0.1"
