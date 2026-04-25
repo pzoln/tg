@@ -5,6 +5,7 @@ mod terminal_render;
 use std::error::Error;
 use std::ffi::OsString;
 use std::io;
+use std::io::IsTerminal;
 use std::path::{Path, PathBuf};
 use std::time::Duration;
 
@@ -30,8 +31,20 @@ use textagram::{
     Action, AppKeyCode, AppKeyEvent, AppKeyModifiers, Mode, SnapshotCropMode, SnapshotCropOptions,
     TimerDirective,
 };
+use tg::cli;
 
 fn main() -> Result<(), Box<dyn Error>> {
+    let cli = cli::CliConfig::parse(std::env::args_os())?;
+    if cli.show_help {
+        println!("{}", cli::render_help());
+        return Ok(());
+    }
+    if cli.show_version {
+        println!("{}", cli::render_version());
+        return Ok(());
+    }
+    cli::validate_startup_io(io::stdin().is_terminal(), io::stdout().is_terminal())?;
+
     let trace_path = init_tracing_to_file(default_trace_path().as_deref());
     let recording_path = default_recording_path();
     let mut session = TerminalSession::new()?;
