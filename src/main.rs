@@ -31,7 +31,9 @@ use textagram::{
     Action, AppKeyCode, AppKeyEvent, AppKeyModifiers, Mode, SnapshotCropMode, SnapshotCropOptions,
     TimerDirective,
 };
+use tg::chrome;
 use tg::cli;
+use tg::file_mode::FileMode;
 
 fn main() -> Result<(), Box<dyn Error>> {
     let cli = cli::CliConfig::parse(std::env::args_os())?;
@@ -45,19 +47,33 @@ fn main() -> Result<(), Box<dyn Error>> {
     }
     cli::validate_startup_io(io::stdin().is_terminal(), io::stdout().is_terminal())?;
 
+    let file_mode = if let Some(path) = cli.file_path {
+        FileMode::load_from_path(path)?
+    } else {
+        FileMode::scratch()
+    };
     let trace_path = init_tracing_to_file(default_trace_path().as_deref());
     let recording_path = default_recording_path();
     let mut session = TerminalSession::new()?;
-    run_app(&mut session, trace_path.as_deref(), &recording_path)
+    run_app(
+        &mut session,
+        trace_path.as_deref(),
+        &recording_path,
+        &file_mode,
+    )
 }
 
 fn run_app(
     session: &mut TerminalSession,
     trace_path: Option<&Path>,
     recording_path: &Path,
+    file_mode: &FileMode,
 ) -> Result<(), Box<dyn Error>> {
     let size = session.terminal_mut().size()?;
     let mut app = Session::new(size.width, size.height);
+    if !matches!(file_mode, FileMode::Scratch(_)) {
+        app.load(file_mode.original_editable_text());
+    }
     let record_crop = SnapshotCropOptions {
         mode: SnapshotCropMode::OriginPreserving,
         padding: 0,
@@ -74,8 +90,10 @@ fn run_app(
 
     loop {
         {
+            let current_text = app.current_document_text();
+            let chrome = chrome::chrome_overrides(file_mode, &current_text);
             let terminal = session.terminal_mut();
-            terminal.draw(|f| draw_session_frame(&app, f))?;
+            terminal.draw(|f| draw_session_frame(&app, f, &chrome))?;
         }
 
         let mut events = Vec::new();

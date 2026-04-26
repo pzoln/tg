@@ -106,6 +106,25 @@ impl MarkdownBackedDocument {
         rebuilt.push_str(&self.after_first_fence);
         rebuilt
     }
+
+    #[cfg(test)]
+    pub(crate) fn new_for_test(
+        path: PathBuf,
+        before_first_fence: String,
+        opening_fence_line: String,
+        original_editable_text: String,
+        closing_fence_line: String,
+        after_first_fence: String,
+    ) -> Self {
+        Self::new(
+            path,
+            before_first_fence,
+            opening_fence_line,
+            original_editable_text,
+            closing_fence_line,
+            after_first_fence,
+        )
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]

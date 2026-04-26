@@ -5,11 +5,17 @@ use ratatui::{
     Frame,
 };
 
-use textagram::{Area, HintProfile, RenderLine, ScreenFrame, SemanticStyle, Session};
+use textagram::{
+    Area, ChromeOverrides, HintProfile, RenderLine, ScreenFrame, SemanticStyle, Session,
+};
 
-pub fn draw_session_frame(session: &Session, frame: &mut Frame<'_>) {
+pub fn draw_session_frame(session: &Session, frame: &mut Frame<'_>, chrome: &ChromeOverrides) {
     let total_area = frame.size();
-    let screen = session.composed_frame(area_from_ratatui_rect(total_area), HintProfile::Terminal);
+    let screen = session.composed_frame_with_overrides(
+        area_from_ratatui_rect(total_area),
+        HintProfile::Terminal,
+        chrome,
+    );
     paint_screen_frame(
         frame.buffer_mut(),
         total_area.x,
