@@ -42,7 +42,7 @@ pub fn terminal_document_clipboard_intent_from_crossterm(
     match key_event.code {
         KeyCode::Char('Y') | KeyCode::Char('y') => Some(ClipboardIntent::CopyDocument),
         KeyCode::Char('X') | KeyCode::Char('x') => Some(ClipboardIntent::CutDocument),
-        KeyCode::Char('I') | KeyCode::Char('i') => Some(ClipboardIntent::PasteDocument),
+        KeyCode::Char('P') | KeyCode::Char('p') => Some(ClipboardIntent::PasteDocument),
         _ => None,
     }
 }
@@ -69,7 +69,7 @@ mod tests {
 
     #[test]
     fn terminal_document_clipboard_intent_accepts_shifted_terminal_shortcuts() {
-        let event = KeyEvent::new(KeyCode::Char('I'), KeyModifiers::SHIFT);
+        let event = KeyEvent::new(KeyCode::Char('P'), KeyModifiers::SHIFT);
 
         assert_eq!(
             terminal_document_clipboard_intent_from_crossterm(event),

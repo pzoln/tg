@@ -50,7 +50,7 @@ the whole file as a plain diagram document.
 - `Enter` or `v` edits the thing under the cursor
 - `i` or `t` enters text mode
 - `/` or `f` starts a connector
-- `Y`, `X`, `I` export, cut, or import the whole document
+- `Y`, `P`, `X` export, import, or cut the whole document
 - `?` opens help
 - `q` quits
 
