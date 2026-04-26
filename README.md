@@ -32,6 +32,16 @@ Built for keyboard-driven structural editing, it lets you:
 cargo run -p tg
 ```
 
+Open a file-backed editing session with:
+
+```bash
+cargo run -p tg -- path/to/diagram.txt
+```
+
+If the file contains a recognized `textagram` fence, `tg` edits the first fence
+body and writes it back into the same markdown file on save. Otherwise it edits
+the whole file as a plain diagram document.
+
 ## Quick Start
 
 - `hjkl`, arrow keys, or `wasd` move the cursor
@@ -43,6 +53,14 @@ cargo run -p tg
 - `Y`, `X`, `I` export, cut, or import the whole document
 - `?` opens help
 - `q` quits
+
+## File Mode
+
+- `tg FILE` opens a file-backed session
+- `Ctrl+S` saves the file and keeps editing
+- plain `q` exits immediately when clean
+- plain `q` prompts `save changes? y/n/esc` when dirty
+- `Q` writes a repro recording and exits without using the save prompt
 
 ## License
 
