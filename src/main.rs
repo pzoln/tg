@@ -6,6 +6,7 @@ use std::error::Error;
 use std::ffi::OsString;
 use std::io;
 use std::io::IsTerminal;
+use std::io::Write;
 use std::path::{Path, PathBuf};
 use std::time::Duration;
 
@@ -33,6 +34,7 @@ use textagram::{
 };
 use tg::chrome;
 use tg::cli;
+use tg::editor_state::{EditorState, QuitRequest, SaveRequestOutcome};
 use tg::file_mode::FileMode;
 
 fn main() -> Result<(), Box<dyn Error>> {
@@ -55,24 +57,33 @@ fn main() -> Result<(), Box<dyn Error>> {
     let trace_path = init_tracing_to_file(default_trace_path().as_deref());
     let recording_path = default_recording_path();
     let mut session = TerminalSession::new()?;
-    run_app(
+    let mut editor_state = EditorState::new(file_mode);
+    let _ = run_app(
         &mut session,
         trace_path.as_deref(),
         &recording_path,
-        &file_mode,
-    )
+        &mut editor_state,
+    )?;
+    Ok(())
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum RunOutcome {
+    Exit,
+    RecordAndExit,
+    SaveAndExit,
 }
 
 fn run_app(
     session: &mut TerminalSession,
     trace_path: Option<&Path>,
     recording_path: &Path,
-    file_mode: &FileMode,
-) -> Result<(), Box<dyn Error>> {
+    editor_state: &mut EditorState,
+) -> Result<RunOutcome, Box<dyn Error>> {
     let size = session.terminal_mut().size()?;
     let mut app = Session::new(size.width, size.height);
-    if !matches!(file_mode, FileMode::Scratch(_)) {
-        app.load(file_mode.original_editable_text());
+    if !matches!(editor_state.file_mode(), FileMode::Scratch(_)) {
+        app.load(editor_state.file_mode().original_editable_text());
     }
     let record_crop = SnapshotCropOptions {
         mode: SnapshotCropMode::OriginPreserving,
@@ -90,8 +101,12 @@ fn run_app(
 
     loop {
         {
-            let current_text = app.current_document_text();
-            let chrome = chrome::chrome_overrides(file_mode, &current_text);
+            let current_text = active_editable_text(&app);
+            let chrome = chrome::chrome_overrides_with_center(
+                editor_state.file_mode(),
+                &current_text,
+                editor_state.center_text(),
+            );
             let terminal = session.terminal_mut();
             terminal.draw(|f| draw_session_frame(&app, f, &chrome))?;
         }
@@ -166,6 +181,11 @@ fn run_app(
                     }
 
                     let app_key_event = app_key_event_from_crossterm(to_process);
+                    match handle_host_key(session, editor_state, &mut app, app_key_event)? {
+                        HostKeyDecision::Consumed => continue,
+                        HostKeyDecision::Exit(outcome) => return Ok(outcome),
+                        HostKeyDecision::ForwardToCore => {}
+                    }
                     tracing::trace!(?to_process, ?app_key_event, mode = ?app.mode(), "terminal_key");
                     let clipboard_before = app.clipboard_text();
                     refresh_terminal_selection_clipboard_from_os_if_needed(&mut app, app_key_event);
@@ -229,10 +249,10 @@ fn run_app(
                         if let Some(trace_path) = trace_path {
                             eprintln!("Debug trace saved to {}", trace_path.display());
                         }
-                        return Ok(());
+                        return Ok(RunOutcome::RecordAndExit);
                     }
                     if action.exit_requested() {
-                        return Ok(());
+                        return Ok(RunOutcome::Exit);
                     }
                     let snapshot = app.canvas_snapshot_data_full();
                     grow_recording_size_including_cursor(
@@ -248,6 +268,131 @@ fn run_app(
             }
         }
     }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum HostKeyDecision {
+    Consumed,
+    ForwardToCore,
+    Exit(RunOutcome),
+}
+
+fn handle_host_key(
+    session: &mut TerminalSession,
+    editor_state: &mut EditorState,
+    app: &mut Session,
+    event: AppKeyEvent,
+) -> Result<HostKeyDecision, Box<dyn Error>> {
+    if editor_state.prompt_active() {
+        if prompt_should_bypass_to_core(app.mode(), event) {
+            return Ok(HostKeyDecision::ForwardToCore);
+        }
+        return match prompt_key_intent(event) {
+            Some(PromptKeyIntent::SaveAndExit) => {
+                let current_text = active_editable_text_for_save(app);
+                match editor_state.save_from_quit_prompt(&current_text) {
+                    Ok(()) => Ok(HostKeyDecision::Exit(RunOutcome::SaveAndExit)),
+                    Err(error) => {
+                        tracing::trace!(?error, "tg_save_from_quit_prompt_failed");
+                        Ok(HostKeyDecision::Consumed)
+                    }
+                }
+            }
+            Some(PromptKeyIntent::DiscardAndExit) => {
+                editor_state.discard_quit_prompt();
+                Ok(HostKeyDecision::Exit(RunOutcome::Exit))
+            }
+            Some(PromptKeyIntent::Cancel) => {
+                editor_state.cancel_quit_prompt();
+                Ok(HostKeyDecision::Consumed)
+            }
+            None => {
+                session.ring_bell()?;
+                Ok(HostKeyDecision::Consumed)
+            }
+        };
+    }
+
+    editor_state.clear_transient_message();
+
+    if is_save_shortcut(event) {
+        let current_text = active_editable_text_for_save(app);
+        match editor_state.save_from_shortcut(&current_text) {
+            Ok(SaveRequestOutcome::Saved) => {}
+            Ok(SaveRequestOutcome::BlockedNoFile) => {
+                session.ring_bell()?;
+            }
+            Err(error) => {
+                tracing::trace!(?error, "tg_save_shortcut_failed");
+            }
+        }
+        return Ok(HostKeyDecision::Consumed);
+    }
+
+    if should_intercept_plain_file_quit(app.mode(), event, editor_state.file_mode()) {
+        let current_text = active_editable_text(app);
+        return Ok(match editor_state.begin_quit(&current_text) {
+            QuitRequest::PromptOpened => HostKeyDecision::Consumed,
+            QuitRequest::ExitImmediately => HostKeyDecision::Exit(RunOutcome::Exit),
+        });
+    }
+
+    Ok(HostKeyDecision::ForwardToCore)
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum PromptKeyIntent {
+    SaveAndExit,
+    DiscardAndExit,
+    Cancel,
+}
+
+fn prompt_key_intent(event: AppKeyEvent) -> Option<PromptKeyIntent> {
+    if matches!(event.code, AppKeyCode::Esc) {
+        return Some(PromptKeyIntent::Cancel);
+    }
+    if !is_plain_or_shift_only(event.modifiers) {
+        return None;
+    }
+    match event.code {
+        AppKeyCode::Char(ch) if ch.eq_ignore_ascii_case(&'y') => Some(PromptKeyIntent::SaveAndExit),
+        AppKeyCode::Char(ch) if ch.eq_ignore_ascii_case(&'n') => {
+            Some(PromptKeyIntent::DiscardAndExit)
+        }
+        _ => None,
+    }
+}
+
+fn is_save_shortcut(event: AppKeyEvent) -> bool {
+    event.modifiers.contains(AppKeyModifiers::CONTROL)
+        && matches!(event.code, AppKeyCode::Char('s') | AppKeyCode::Char('S'))
+}
+
+fn should_intercept_plain_file_quit(mode: Mode, event: AppKeyEvent, file_mode: &FileMode) -> bool {
+    file_mode.path().is_some()
+        && mode != Mode::Text
+        && event.modifiers == AppKeyModifiers::NONE
+        && matches!(event.code, AppKeyCode::Char('q'))
+}
+
+fn prompt_should_bypass_to_core(mode: Mode, event: AppKeyEvent) -> bool {
+    if event.modifiers.contains(AppKeyModifiers::CONTROL) {
+        return matches!(
+            event.code,
+            AppKeyCode::Char('c')
+                | AppKeyCode::Char('C')
+                | AppKeyCode::Char('q')
+                | AppKeyCode::Char('Q')
+        );
+    }
+
+    mode != Mode::Text
+        && is_plain_or_shift_only(event.modifiers)
+        && matches!(event.code, AppKeyCode::Char('Q'))
+}
+
+fn is_plain_or_shift_only(modifiers: AppKeyModifiers) -> bool {
+    modifiers == AppKeyModifiers::NONE || modifiers == AppKeyModifiers::SHIFT
 }
 
 fn movement_coalescing_mode(mode: Mode) -> bool {
@@ -287,6 +432,14 @@ fn recording_cursor(session: &Session) -> (u16, u16) {
         viewport.origin.0.saturating_add(col),
         viewport.origin.1.saturating_add(row),
     )
+}
+
+fn active_editable_text(session: &Session) -> String {
+    session.current_document_text()
+}
+
+fn active_editable_text_for_save(session: &mut Session) -> String {
+    session.export_for_host_save()
 }
 
 fn refresh_terminal_selection_clipboard_from_os_if_needed(
@@ -436,6 +589,12 @@ impl TerminalSession {
 
     fn terminal_mut(&mut self) -> &mut Terminal<CrosstermBackend<io::Stdout>> {
         &mut self.terminal
+    }
+
+    fn ring_bell(&mut self) -> io::Result<()> {
+        let backend = self.terminal.backend_mut();
+        backend.write_all(b"\x07")?;
+        backend.flush()
     }
 }
 

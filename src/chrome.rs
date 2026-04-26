@@ -9,8 +9,17 @@ const CHIP_PREFIX_TEXT: &str = "─╴";
 const CHIP_SUFFIX_TEXT: &str = "╶";
 
 pub fn chrome_overrides(file_mode: &FileMode, current_editable_text: &str) -> ChromeOverrides {
+    chrome_overrides_with_center(file_mode, current_editable_text, None)
+}
+
+pub fn chrome_overrides_with_center(
+    file_mode: &FileMode,
+    current_editable_text: &str,
+    center_text: Option<&str>,
+) -> ChromeOverrides {
     ChromeOverrides {
         left_title: Some(left_title_line(file_mode, current_editable_text)),
+        top_center: center_text.map(center_title_line),
     }
 }
 
@@ -45,6 +54,15 @@ fn plain_segment(text: impl Into<String>) -> RenderSegment {
     RenderSegment {
         text: text.into(),
         style: SemanticStyle::Plain,
+    }
+}
+
+fn center_title_line(text: &str) -> RenderLine {
+    RenderLine {
+        segments: vec![RenderSegment {
+            text: format!(" {text} "),
+            style: SemanticStyle::HelpHeading,
+        }],
     }
 }
 

@@ -196,6 +196,26 @@ impl FileMode {
             Self::MarkdownBacked(doc) => doc.is_dirty(current_editable_text),
         }
     }
+
+    pub fn save_payload(&self, current_editable_text: &str) -> Option<String> {
+        match self {
+            Self::Scratch(_) => None,
+            Self::PlainFile(_) => Some(current_editable_text.to_string()),
+            Self::MarkdownBacked(doc) => Some(doc.reconstruct_with(current_editable_text)),
+        }
+    }
+
+    pub fn mark_saved(&mut self, current_editable_text: String) {
+        match self {
+            Self::Scratch(_) => {}
+            Self::PlainFile(doc) => {
+                doc.original_editable_text = current_editable_text;
+            }
+            Self::MarkdownBacked(doc) => {
+                doc.original_editable_text = current_editable_text;
+            }
+        }
+    }
 }
 
 #[derive(Debug)]
@@ -440,6 +460,35 @@ mod tests {
 
         let scratch = FileMode::scratch();
         assert!(!scratch.is_dirty("anything"));
+    }
+
+    #[test]
+    fn save_payload_uses_whole_text_for_plain_files() {
+        let mode = FileMode::from_existing_text(PathBuf::from("diagram.txt"), "old");
+
+        assert_eq!(mode.save_payload("new"), Some("new".to_string()));
+    }
+
+    #[test]
+    fn save_payload_reconstructs_only_first_recognized_fence_body() {
+        let mode = FileMode::from_existing_text(
+            PathBuf::from("diagram.md"),
+            "before\n```textagram\nold\n```\nafter\n",
+        );
+
+        assert_eq!(
+            mode.save_payload("new"),
+            Some("before\n```textagram\nnew\n```\nafter\n".to_string())
+        );
+    }
+
+    #[test]
+    fn mark_saved_refreshes_dirty_baseline() {
+        let mut mode = FileMode::from_existing_text(PathBuf::from("diagram.txt"), "old");
+
+        assert!(mode.is_dirty("new"));
+        mode.mark_saved("new".to_string());
+        assert!(!mode.is_dirty("new"));
     }
 
     #[test]
