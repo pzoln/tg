@@ -27,10 +27,9 @@ use terminal_input::{
 };
 use terminal_render::draw_session_frame;
 use textagram::app::debug::init_tracing_to_file;
-use textagram::session::{ClipboardIntent, Session};
 use textagram::{
-    Action, AppKeyCode, AppKeyEvent, AppKeyModifiers, Mode, SnapshotCropMode, SnapshotCropOptions,
-    TimerDirective,
+    Action, AppKeyCode, AppKeyEvent, AppKeyModifiers, ClipboardIntent, Mode, Session,
+    SnapshotCropMode, SnapshotCropOptions, TimerDirective,
 };
 use tg::chrome;
 use tg::cli;
