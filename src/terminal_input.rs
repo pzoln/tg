@@ -15,7 +15,9 @@ pub fn app_key_event_from_crossterm(key_event: KeyEvent) -> AppKeyEvent {
     }
 
     let code = match key_event.code {
-        KeyCode::Char(ch) => AppKeyCode::Char(ch),
+        KeyCode::Char(ch) => {
+            AppKeyCode::Char(normalized_shifted_alpha_char(ch, key_event.modifiers))
+        }
         KeyCode::Enter => AppKeyCode::Enter,
         KeyCode::Esc => AppKeyCode::Esc,
         KeyCode::Left => AppKeyCode::Left,
@@ -30,6 +32,14 @@ pub fn app_key_event_from_crossterm(key_event: KeyEvent) -> AppKeyEvent {
     };
 
     AppKeyEvent::new(code, modifiers)
+}
+
+fn normalized_shifted_alpha_char(ch: char, modifiers: KeyModifiers) -> char {
+    if modifiers.contains(KeyModifiers::SHIFT) && ch.is_ascii_lowercase() {
+        ch.to_ascii_uppercase()
+    } else {
+        ch
+    }
 }
 
 pub fn terminal_document_clipboard_intent_from_crossterm(
@@ -56,6 +66,14 @@ mod tests {
         let event = KeyEvent::new(KeyCode::Char('Y'), KeyModifiers::SHIFT);
         let translated = app_key_event_from_crossterm(event);
         assert_eq!(translated.code, AppKeyCode::Char('Y'));
+        assert!(translated.modifiers.contains(AppKeyModifiers::SHIFT));
+    }
+
+    #[test]
+    fn crossterm_translation_normalizes_lowercase_shifted_alpha_to_uppercase() {
+        let event = KeyEvent::new(KeyCode::Char('l'), KeyModifiers::SHIFT);
+        let translated = app_key_event_from_crossterm(event);
+        assert_eq!(translated.code, AppKeyCode::Char('L'));
         assert!(translated.modifiers.contains(AppKeyModifiers::SHIFT));
     }
 

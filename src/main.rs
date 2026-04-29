@@ -1,5 +1,4 @@
 mod recording;
-mod terminal_input;
 mod terminal_render;
 
 use std::error::Error;
@@ -22,9 +21,6 @@ use recording::{
     grow_recording_size_including_cursor, keyspec_for_processed_key,
     occupied_recording_size_including_cursor, recording_lines_for_size, write_e2e_recording,
 };
-use terminal_input::{
-    app_key_event_from_crossterm, terminal_document_clipboard_intent_from_crossterm,
-};
 use terminal_render::draw_session_frame;
 use textagram::app::debug::init_tracing_to_file;
 use textagram::{
@@ -35,6 +31,9 @@ use tg::chrome;
 use tg::cli;
 use tg::editor_state::{EditorState, QuitRequest, SaveRequestOutcome};
 use tg::file_mode::FileMode;
+use tg::terminal_input::{
+    app_key_event_from_crossterm, terminal_document_clipboard_intent_from_crossterm,
+};
 
 fn main() -> Result<(), Box<dyn Error>> {
     let cli = cli::CliConfig::parse(std::env::args_os())?;
