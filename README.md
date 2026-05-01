@@ -29,6 +29,19 @@ Built for keyboard-driven structural editing, it lets you:
 ## Run
 
 ```bash
+npm install -g @textagram/tg
+tg
+```
+
+Or run it one-shot with:
+
+```bash
+npx @textagram/tg path/to/diagram.txt
+```
+
+For development from this monorepo:
+
+```bash
 cargo run -p tg
 ```
 
