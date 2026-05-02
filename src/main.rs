@@ -56,6 +56,8 @@ fn main() -> Result<(), Box<dyn Error>> {
     let recording_path = default_recording_path();
     let mut session = TerminalSession::new()?;
     let mut editor_state = EditorState::new(file_mode);
+    // All successful outcomes mean the terminal host should exit; `RunOutcome`
+    // only exists to steer save/recording behavior inside `run_app`.
     let _ = run_app(
         &mut session,
         trace_path.as_deref(),

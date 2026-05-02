@@ -45,7 +45,8 @@ fn paint_render_line(buffer: &mut Buffer, x: u16, y: u16, width: usize, line: &R
             if rendered_width == width {
                 break;
             }
-            buffer.set_stringn(xoff, y, ch.to_string(), 1, style);
+            let mut encoded = [0; 4];
+            buffer.set_stringn(xoff, y, ch.encode_utf8(&mut encoded), 1, style);
             xoff = xoff.saturating_add(1);
             rendered_width += 1;
         }

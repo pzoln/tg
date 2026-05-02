@@ -1,7 +1,4 @@
-//! Terminal-only recording helpers.
-//!
-//! These support the current `tg` workflow and are intentionally kept out of
-//! the long-term core-library surface while the repo is still a single crate.
+//! Terminal-specific recording helpers for the `tg` session replay workflow.
 
 use std::error::Error;
 use std::fs;

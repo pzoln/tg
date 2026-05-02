@@ -99,7 +99,7 @@ mod tests {
 
     #[test]
     fn markdown_file_left_title_uses_same_file_chip_as_plain_file_mode() {
-        let mode = FileMode::MarkdownBacked(MarkdownBackedDocument::new_for_test(
+        let mode = FileMode::MarkdownBacked(MarkdownBackedDocument::new(
             "docs/MyDoc.md".into(),
             "before\n".to_string(),
             "```textagram\n".to_string(),

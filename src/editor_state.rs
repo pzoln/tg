@@ -109,10 +109,6 @@ impl EditorState {
     }
 
     fn persist_current_text(&mut self, current_editable_text: &str) -> Result<(), FileSaveError> {
-        debug_assert!(
-            self.file_mode.path().is_some(),
-            "persist_current_text should only be called for file-backed modes"
-        );
         let path = self
             .file_mode
             .path()
