@@ -89,11 +89,9 @@ fn run_app(
     };
     let mut baseline_snapshot = app.canvas_snapshot_data_full();
     let mut baseline_clipboard = app.clipboard_text();
-    let mut recorded_size = occupied_recording_size_including_cursor(
-        &baseline_snapshot,
-        recording_cursor(&app),
-        record_crop,
-    );
+    let mut baseline_cursor = recording_cursor(&app);
+    let mut recorded_size =
+        occupied_recording_size_including_cursor(&baseline_snapshot, baseline_cursor, record_crop);
     let mut recorded_keys = String::new();
     let mut next_tick_delay_ms = app.next_ui_tick_delay_ms();
 
@@ -217,9 +215,10 @@ fn run_app(
                     if action.reset_recording_baseline() {
                         baseline_snapshot = app.canvas_snapshot_data_full();
                         baseline_clipboard = app.clipboard_text();
+                        baseline_cursor = recording_cursor(&app);
                         recorded_size = occupied_recording_size_including_cursor(
                             &baseline_snapshot,
-                            recording_cursor(&app),
+                            baseline_cursor,
                             record_crop,
                         );
                         recorded_keys.clear();
@@ -240,6 +239,7 @@ fn run_app(
                             recording_path,
                             &recorded_keys,
                             &initial_lines,
+                            baseline_cursor,
                             baseline_clipboard.as_deref(),
                             &final_lines,
                         )?;

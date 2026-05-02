@@ -62,6 +62,7 @@ pub fn write_e2e_recording(
     path: &Path,
     keys: &str,
     given: &[String],
+    cursor: (u16, u16),
     clipboard: Option<&str>,
     expect: &[String],
 ) -> Result<String, Box<dyn Error>> {
@@ -71,39 +72,78 @@ pub fn write_e2e_recording(
     {
         fs::create_dir_all(parent)?;
     }
-    fs::write(path, format_e2e_recording(keys, given, clipboard, expect))?;
+    fs::write(
+        path,
+        format_e2e_recording(keys, given, Some(cursor), clipboard, expect),
+    )?;
     Ok(path.display().to_string())
 }
 
 pub fn format_e2e_recording(
     keys: &str,
     given: &[String],
+    cursor: Option<(u16, u16)>,
     clipboard: Option<&str>,
     expect: &[String],
 ) -> String {
     let mut content = String::new();
-    content.push_str("## Scenario: Recorded session\n\n**Given**\n```\n");
-    for line in given {
-        content.push_str(line);
-        content.push('\n');
+    content.push_str("## Scenario: Recorded session\n\n**Given**\n");
+    append_fenced_lines(&mut content, given);
+    if let Some((col, row)) = cursor {
+        content.push_str(&format!("\n**Cursor** {col} {row}\n"));
     }
-    content.push_str("```\n");
     if let Some(clipboard) = clipboard.filter(|clipboard| !clipboard.is_empty()) {
-        content.push_str("\n**Clipboard**\n```\n");
-        content.push_str(clipboard);
-        if !clipboard.ends_with('\n') {
-            content.push('\n');
-        }
-        content.push_str("```\n");
+        content.push_str("\n**Clipboard**\n");
+        append_fenced_text(&mut content, clipboard);
     }
-    content.push_str(&format!("\n**Keys**\n```\n{keys}\n```\n"));
-    content.push_str("\n**Expect**\n```\n");
-    for line in expect {
+    content.push_str("\n**Keys**\n");
+    append_fenced_text(&mut content, keys);
+    content.push_str("\n**Expect**\n");
+    append_fenced_lines(&mut content, expect);
+    content
+}
+
+fn append_fenced_lines(content: &mut String, lines: &[String]) {
+    let text = lines.join("\n");
+    let fence = markdown_fence_for(&text);
+    content.push_str(&fence);
+    content.push('\n');
+    for line in lines {
         content.push_str(line);
         content.push('\n');
     }
-    content.push_str("```\n");
-    content
+    content.push_str(&fence);
+    content.push('\n');
+}
+
+fn append_fenced_text(content: &mut String, text: &str) {
+    let fence = markdown_fence_for(text);
+    content.push_str(&fence);
+    content.push('\n');
+    content.push_str(text);
+    if !text.ends_with('\n') {
+        content.push('\n');
+    }
+    content.push_str(&fence);
+    content.push('\n');
+}
+
+fn markdown_fence_for(text: &str) -> String {
+    "`".repeat(max_backtick_run(text).saturating_add(1).max(3))
+}
+
+fn max_backtick_run(text: &str) -> usize {
+    let mut max_run = 0usize;
+    let mut current_run = 0usize;
+    for ch in text.chars() {
+        if ch == '`' {
+            current_run = current_run.saturating_add(1);
+            max_run = max_run.max(current_run);
+        } else {
+            current_run = 0;
+        }
+    }
+    max_run
 }
 
 #[cfg(test)]
@@ -279,18 +319,38 @@ mod tests {
         let content = format_e2e_recording(
             "hjkl",
             &["abc".to_string()],
+            Some((2, 3)),
             Some("copied"),
             &["xyz".to_string()],
         );
 
+        assert!(content.contains("**Cursor** 2 3"));
         assert!(content.contains("**Clipboard**"));
         assert!(content.contains("```\ncopied\n```"));
     }
 
     #[test]
+    fn format_e2e_recording_uses_longer_clipboard_fence_when_needed() {
+        let content = format_e2e_recording(
+            "p",
+            &["...".to_string()],
+            Some((0, 0)),
+            Some("```textagram\n┏━┓\n```"),
+            &["┏━┓".to_string()],
+        );
+
+        assert!(content.contains("**Clipboard**\n````\n```textagram\n┏━┓\n```\n````"));
+    }
+
+    #[test]
     fn format_e2e_recording_omits_clipboard_block_when_empty() {
-        let content =
-            format_e2e_recording("hjkl", &["abc".to_string()], Some(""), &["xyz".to_string()]);
+        let content = format_e2e_recording(
+            "hjkl",
+            &["abc".to_string()],
+            Some((0, 0)),
+            Some(""),
+            &["xyz".to_string()],
+        );
 
         assert!(!content.contains("**Clipboard**"));
     }
