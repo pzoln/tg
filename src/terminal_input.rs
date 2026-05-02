@@ -43,7 +43,7 @@ fn normalized_shifted_alpha_char(ch: char, modifiers: KeyModifiers) -> char {
     }
 }
 
-/// Maps terminal-only shifted document clipboard keys (`Y`/`P`/`X`) to intents.
+/// Maps shifted terminal document clipboard keys (`Y`/`P`/`X`) to intents.
 pub fn terminal_document_clipboard_intent_from_crossterm(
     key_event: KeyEvent,
 ) -> Option<ClipboardIntent> {
