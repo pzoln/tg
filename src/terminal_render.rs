@@ -9,6 +9,7 @@ use textagram::{
     Area, ChromeOverrides, HintProfile, RenderLine, ScreenFrame, SemanticStyle, Session,
 };
 
+/// Renders a Textagram session into the current ratatui frame.
 pub fn draw_session_frame(session: &Session, frame: &mut Frame<'_>, chrome: &ChromeOverrides) {
     let total_area = frame.size();
     let screen = session.composed_frame_with_overrides(

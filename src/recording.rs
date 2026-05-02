@@ -46,6 +46,7 @@ fn key_event_to_keyspec(key_event: AppKeyEvent) -> Option<String> {
     }
 }
 
+/// Converts a processed key into a replay token, omitting recording-control keys.
 pub fn keyspec_for_processed_key(key_event: AppKeyEvent, action: Action) -> Option<String> {
     if action.record_and_exit() || action.reset_recording_baseline() {
         None
@@ -55,6 +56,7 @@ pub fn keyspec_for_processed_key(key_event: AppKeyEvent, action: Action) -> Opti
 }
 
 #[cfg_attr(test, allow(dead_code))]
+/// Writes a markdown e2e scenario that can replay the recorded terminal session.
 pub fn write_e2e_recording(
     path: &Path,
     keys: &str,
@@ -76,6 +78,7 @@ pub fn write_e2e_recording(
     Ok(path.display().to_string())
 }
 
+/// Formats a recorded session as the repository's markdown e2e scenario format.
 pub fn format_e2e_recording(
     keys: &str,
     given: &[String],
@@ -144,10 +147,12 @@ fn max_backtick_run(text: &str) -> usize {
 }
 
 #[cfg(test)]
+/// Returns the cropped occupied size for a canvas snapshot.
 pub fn occupied_recording_size(snapshot: &CanvasSnapshot, crop: SnapshotCropOptions) -> (u16, u16) {
     snapshot.crop(crop).size
 }
 
+/// Returns the occupied snapshot size, expanded to include the recorded cursor cell.
 pub fn occupied_recording_size_including_cursor(
     snapshot: &CanvasSnapshot,
     cursor: (u16, u16),
@@ -168,6 +173,7 @@ pub fn occupied_recording_size_including_cursor(
 }
 
 #[cfg(test)]
+/// Grows a recorded size to include the current occupied snapshot size.
 pub fn grow_recording_size(
     recorded_size: &mut (u16, u16),
     snapshot: &CanvasSnapshot,
@@ -178,6 +184,7 @@ pub fn grow_recording_size(
     recorded_size.1 = recorded_size.1.max(size.1);
 }
 
+/// Grows a recorded size to include both the current snapshot and cursor cell.
 pub fn grow_recording_size_including_cursor(
     recorded_size: &mut (u16, u16),
     snapshot: &CanvasSnapshot,
@@ -189,6 +196,7 @@ pub fn grow_recording_size_including_cursor(
     recorded_size.1 = recorded_size.1.max(size.1);
 }
 
+/// Renders a snapshot into fixed-size e2e rows, using dots for blank cells.
 pub fn recording_lines_for_size(snapshot: &CanvasSnapshot, size: (u16, u16)) -> Vec<String> {
     let mut lines = Vec::with_capacity(size.1 as usize);
     for row in 0..size.1 as usize {

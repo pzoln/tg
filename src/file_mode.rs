@@ -5,9 +5,11 @@ use std::path::{Path, PathBuf};
 
 const RECOGNIZED_FENCE_LABEL: &str = "textagram";
 
+/// Scratch mode: no backing file and no save prompt.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ScratchDocument;
 
+/// A file whose whole contents are edited as one diagram document.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct PlainFileDocument {
     path: PathBuf,
@@ -15,6 +17,7 @@ pub struct PlainFileDocument {
 }
 
 impl PlainFileDocument {
+    /// Creates a plain file-backed document with its current clean baseline.
     pub fn new(path: PathBuf, original_editable_text: String) -> Self {
         Self {
             path,
@@ -22,19 +25,23 @@ impl PlainFileDocument {
         }
     }
 
+    /// Returns the backing path for this plain file.
     pub fn path(&self) -> &Path {
         &self.path
     }
 
+    /// Returns the clean baseline text loaded from disk or last saved.
     pub fn original_editable_text(&self) -> &str {
         &self.original_editable_text
     }
 
+    /// Reports whether the current exported text differs from the clean baseline.
     pub fn is_dirty(&self, current_editable_text: &str) -> bool {
         self.original_editable_text != current_editable_text
     }
 }
 
+/// A markdown file where only the first recognized `textagram` fence body is edited.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct MarkdownBackedDocument {
     path: PathBuf,
@@ -46,6 +53,7 @@ pub struct MarkdownBackedDocument {
 }
 
 impl MarkdownBackedDocument {
+    /// Creates a parsed markdown-backed document while preserving unedited regions.
     pub(crate) fn new(
         path: PathBuf,
         before_first_fence: String,
@@ -64,34 +72,42 @@ impl MarkdownBackedDocument {
         }
     }
 
+    /// Returns the backing markdown file path.
     pub fn path(&self) -> &Path {
         &self.path
     }
 
+    /// Returns markdown text before the first recognized fence.
     pub fn before_first_fence(&self) -> &str {
         &self.before_first_fence
     }
 
+    /// Returns the preserved opening fence line.
     pub fn opening_fence_line(&self) -> &str {
         &self.opening_fence_line
     }
 
+    /// Returns the clean editable fence body loaded from disk or last saved.
     pub fn original_editable_text(&self) -> &str {
         &self.original_editable_text
     }
 
+    /// Returns the preserved closing fence line.
     pub fn closing_fence_line(&self) -> &str {
         &self.closing_fence_line
     }
 
+    /// Returns markdown text after the first recognized fence.
     pub fn after_first_fence(&self) -> &str {
         &self.after_first_fence
     }
 
+    /// Reports whether the current exported body differs from the clean baseline.
     pub fn is_dirty(&self, current_editable_text: &str) -> bool {
         self.original_editable_text != current_editable_text
     }
 
+    /// Rebuilds the full markdown file with only the first fence body replaced.
     pub fn reconstruct_with(&self, current_editable_text: &str) -> String {
         let mut rebuilt = String::new();
         rebuilt.push_str(&self.before_first_fence);
@@ -108,18 +124,24 @@ impl MarkdownBackedDocument {
     }
 }
 
+/// Host-owned file model for scratch, whole-file, and first-fence markdown editing.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum FileMode {
+    /// No file path; saves are blocked and quits do not prompt.
     Scratch(ScratchDocument),
+    /// The entire file is treated as one editable diagram.
     PlainFile(PlainFileDocument),
+    /// Only the first recognized `textagram` fenced block body is editable.
     MarkdownBacked(MarkdownBackedDocument),
 }
 
 impl FileMode {
+    /// Creates scratch mode for `tg` with no file argument.
     pub fn scratch() -> Self {
         Self::Scratch(ScratchDocument)
     }
 
+    /// Loads an existing file or creates a blank file-backed model for a missing path.
     pub fn load_from_path(path: PathBuf) -> Result<Self, FileLoadError> {
         match fs::metadata(&path) {
             Ok(metadata) => {
@@ -145,6 +167,7 @@ impl FileMode {
         Ok(Self::from_existing_text(path, &text))
     }
 
+    /// Parses already-read text using the same content rules as `load_from_path`.
     pub fn from_existing_text(path: PathBuf, text: &str) -> Self {
         let normalized = normalize_newlines(text);
         if let Some(parsed) = parse_markdown_backed_document(path.clone(), &normalized) {
@@ -154,6 +177,7 @@ impl FileMode {
         }
     }
 
+    /// Returns the backing file path, if this mode is file-backed.
     pub fn path(&self) -> Option<&Path> {
         match self {
             Self::Scratch(_) => None,
@@ -162,6 +186,7 @@ impl FileMode {
         }
     }
 
+    /// Returns the clean editable text baseline used to initialize `Session`.
     pub fn original_editable_text(&self) -> &str {
         match self {
             Self::Scratch(_) => "",
@@ -170,6 +195,7 @@ impl FileMode {
         }
     }
 
+    /// Compares current exported text with the clean baseline for dirty UI/prompting.
     pub fn is_dirty(&self, current_editable_text: &str) -> bool {
         match self {
             Self::Scratch(_) => false,
@@ -178,6 +204,7 @@ impl FileMode {
         }
     }
 
+    /// Builds the bytes that should be written for the current editable text.
     pub fn save_payload(&self, current_editable_text: &str) -> Option<String> {
         match self {
             Self::Scratch(_) => None,
@@ -186,6 +213,7 @@ impl FileMode {
         }
     }
 
+    /// Refreshes the clean baseline after a successful file save.
     pub fn mark_saved(&mut self, current_editable_text: String) {
         match self {
             Self::Scratch(_) => {}
@@ -199,9 +227,12 @@ impl FileMode {
     }
 }
 
+/// File loading error surfaced before raw terminal mode starts.
 #[derive(Debug)]
 pub enum FileLoadError {
+    /// The provided path is a directory, not an editable text file.
     Directory(PathBuf),
+    /// The provided path could not be read as UTF-8 text.
     Read { path: PathBuf, source: io::Error },
 }
 

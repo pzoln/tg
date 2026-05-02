@@ -2,6 +2,7 @@ use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
 
 use textagram::{AppKeyCode, AppKeyEvent, AppKeyModifiers, ClipboardIntent};
 
+/// Translates crossterm key events into Textagram's host-neutral key type.
 pub fn app_key_event_from_crossterm(key_event: KeyEvent) -> AppKeyEvent {
     let mut modifiers = AppKeyModifiers::NONE;
     if key_event.modifiers.contains(KeyModifiers::SHIFT) {
@@ -42,6 +43,7 @@ fn normalized_shifted_alpha_char(ch: char, modifiers: KeyModifiers) -> char {
     }
 }
 
+/// Maps terminal-only shifted document clipboard keys (`Y`/`P`/`X`) to intents.
 pub fn terminal_document_clipboard_intent_from_crossterm(
     key_event: KeyEvent,
 ) -> Option<ClipboardIntent> {

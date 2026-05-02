@@ -10,15 +10,21 @@ const SAVE_PROMPT_TEXT: &str = "save changes? y/n/esc";
 const NO_FILE_TO_SAVE_TEXT: &str = "no file to save";
 const SAVE_FAILED_TEXT: &str = "save failed";
 
+/// Result of a plain `q` request in file-backed mode.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum QuitRequest {
+    /// The document is dirty and the host should show the save prompt.
     PromptOpened,
+    /// The host can exit immediately without prompting.
     ExitImmediately,
 }
 
+/// Result of an explicit save shortcut.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum SaveRequestOutcome {
+    /// File contents were written successfully.
     Saved,
+    /// Scratch mode has no backing file, so the save request was blocked.
     BlockedNoFile,
 }
 
@@ -28,6 +34,7 @@ enum QuitPromptState {
     ConfirmSaveOnQuit,
 }
 
+/// Host-owned file, save, and quit-prompt state for the terminal app.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct EditorState {
     file_mode: FileMode,
@@ -36,6 +43,7 @@ pub struct EditorState {
 }
 
 impl EditorState {
+    /// Creates host editor state for a scratch, plain-file, or markdown-backed document.
     pub fn new(file_mode: FileMode) -> Self {
         Self {
             file_mode,
@@ -44,10 +52,12 @@ impl EditorState {
         }
     }
 
+    /// Returns the current backing document model.
     pub fn file_mode(&self) -> &FileMode {
         &self.file_mode
     }
 
+    /// Returns optional top-center text owned by the host, such as save prompts.
     pub fn center_text(&self) -> Option<&str> {
         match self.quit_prompt {
             QuitPromptState::ConfirmSaveOnQuit => Some(SAVE_PROMPT_TEXT),
@@ -55,16 +65,19 @@ impl EditorState {
         }
     }
 
+    /// Reports whether the save-on-quit prompt is currently intercepting input.
     pub fn prompt_active(&self) -> bool {
         matches!(self.quit_prompt, QuitPromptState::ConfirmSaveOnQuit)
     }
 
+    /// Clears transient host messages after the next accepted key.
     pub fn clear_transient_message(&mut self) {
         if !self.prompt_active() {
             self.transient_message = None;
         }
     }
 
+    /// Starts quit handling, opening a save prompt only for dirty file-backed documents.
     pub fn begin_quit(&mut self, current_editable_text: &str) -> QuitRequest {
         self.transient_message = None;
         if self.file_mode.path().is_some() && self.file_mode.is_dirty(current_editable_text) {
@@ -76,15 +89,18 @@ impl EditorState {
         }
     }
 
+    /// Dismisses an active save prompt without saving or exiting.
     pub fn cancel_quit_prompt(&mut self) {
         self.quit_prompt = QuitPromptState::Inactive;
     }
 
+    /// Accepts the discard branch of the save prompt and clears prompt state.
     pub fn discard_quit_prompt(&mut self) {
         self.quit_prompt = QuitPromptState::Inactive;
         self.transient_message = None;
     }
 
+    /// Saves the current editable diagram for `Ctrl+S` and keeps editing.
     pub fn save_from_shortcut(
         &mut self,
         current_editable_text: &str,
@@ -99,6 +115,7 @@ impl EditorState {
         Ok(SaveRequestOutcome::Saved)
     }
 
+    /// Saves from the quit prompt before the host exits.
     pub fn save_from_quit_prompt(
         &mut self,
         current_editable_text: &str,
@@ -132,6 +149,7 @@ impl EditorState {
     }
 }
 
+/// Error returned when a file-backed save fails.
 #[derive(Debug)]
 pub struct FileSaveError {
     path: PathBuf,
@@ -146,6 +164,7 @@ impl fmt::Display for FileSaveError {
 
 impl std::error::Error for FileSaveError {}
 
+/// Writes a text file via create-new temp file plus same-directory rename.
 fn write_text_file_atomically(path: &Path, text: &str) -> io::Result<()> {
     let parent = path
         .parent()

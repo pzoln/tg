@@ -3,14 +3,19 @@ use std::ffi::OsString;
 use std::fmt;
 use std::path::PathBuf;
 
+/// Parsed process-level command-line options for the `tg` terminal host.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct CliConfig {
+    /// Print CLI help and exit before initializing the terminal.
     pub show_help: bool,
+    /// Print the package version and exit before initializing the terminal.
     pub show_version: bool,
+    /// Optional file path to edit in place; `None` starts scratch mode.
     pub file_path: Option<PathBuf>,
 }
 
 impl CliConfig {
+    /// Parses `tg` arguments: zero or one file path plus `--help` / `--version`.
     pub fn parse(args: impl IntoIterator<Item = OsString>) -> Result<Self, CliError> {
         let mut show_help = false;
         let mut show_version = false;
@@ -45,6 +50,7 @@ impl CliConfig {
     }
 }
 
+/// User-facing startup error for invalid CLI arguments or terminal I/O.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct CliError {
     message: String,
@@ -67,12 +73,14 @@ impl CliError {
         }
     }
 
+    /// Builds the error returned when stdin is redirected.
     pub fn stdin_not_tty() -> Self {
         Self {
             message: "stdin redirection is not supported by `tg`; run it on a terminal".to_string(),
         }
     }
 
+    /// Builds the error returned when stdout is redirected.
     pub fn stdout_not_tty() -> Self {
         Self {
             message: "stdout redirection is not supported by `tg`; run it on a terminal"
@@ -89,6 +97,7 @@ impl fmt::Display for CliError {
 
 impl Error for CliError {}
 
+/// Rejects redirected stdin/stdout so `tg` always owns an interactive terminal.
 pub fn validate_startup_io(stdin_is_tty: bool, stdout_is_tty: bool) -> Result<(), CliError> {
     if !stdin_is_tty {
         return Err(CliError::stdin_not_tty());
@@ -101,6 +110,7 @@ pub fn validate_startup_io(stdin_is_tty: bool, stdout_is_tty: bool) -> Result<()
     Ok(())
 }
 
+/// Renders process-level help for launching `tg`, distinct from in-app help.
 pub fn render_help() -> String {
     format!(
         "\
@@ -124,6 +134,7 @@ Notes:
     )
 }
 
+/// Renders the package version shown by `tg --version`.
 pub fn render_version() -> String {
     format!("tg {}", env!("CARGO_PKG_VERSION"))
 }

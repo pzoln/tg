@@ -8,10 +8,12 @@ const TG_TITLE_TEXT: &str = " tg ";
 const CHIP_PREFIX_TEXT: &str = "─╴";
 const CHIP_SUFFIX_TEXT: &str = "╶";
 
+/// Builds terminal chrome overrides with the `tg` title and optional file chip.
 pub fn chrome_overrides(file_mode: &FileMode, current_editable_text: &str) -> ChromeOverrides {
     chrome_overrides_with_center(file_mode, current_editable_text, None)
 }
 
+/// Builds terminal chrome overrides plus optional host-owned top-center text.
 pub fn chrome_overrides_with_center(
     file_mode: &FileMode,
     current_editable_text: &str,
