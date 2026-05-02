@@ -55,6 +55,18 @@ If the file contains a recognized `textagram` fence, `tg` edits the first fence
 body and writes it back into the same markdown file on save. Otherwise it edits
 the whole file as a plain diagram document.
 
+## Source Builds
+
+`tg` is open source, but source builds are not currently supported from the
+public `tg` repository alone.
+
+The terminal host depends on the Textagram core engine, which remains private
+while the core is being refactored. Official binaries are built from the private
+integration workspace and published through GitHub Releases and npm.
+
+We intend to make standalone source builds possible once the core refactor is complete and
+stable.
+
 ## Quick Start
 
 - `hjkl`, arrow keys, or `wasd` move the cursor
