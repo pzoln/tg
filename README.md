@@ -1,5 +1,9 @@
 # tg
 
+[![GitHub](https://img.shields.io/github/license/pzoln/tg)](https://github.com/pzoln/tg)
+[![npm](https://img.shields.io/npm/v/@textagram/tg)](https://www.npmjs.com/package/@textagram/tg)
+[![GitHub release](https://img.shields.io/github/v/release/pzoln/tg)](https://github.com/pzoln/tg/releases)
+
 `tg` is a text diagram editor for the terminal.
 
 WYSIWYG-style editing for plain-text diagrams.
