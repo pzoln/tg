@@ -1,0 +1,12 @@
+/target/
+
+# Editor and OS noise.
+*.swp
+*.swo
+*~
+.DS_Store
+
+# Generated local recordings.
+tg-recording.md
+recording.md
+recording.trace
