@@ -30,29 +30,56 @@ Built for keyboard-driven structural editing, it lets you:
                        ┗━━━━━━━━━━━━┛
 ```
 
-## Run
+## Install
+
+### macOS with Homebrew
+
+```bash
+brew tap pzoln/textagram
+brew install tg
+```
+
+### Windows with Scoop
+
+```bash
+scoop bucket add textagram https://github.com/pzoln/scoop-textagram
+scoop install textagram/tg
+```
+
+### npm
 
 ```bash
 npm install -g @textagram/tg
-tg
 ```
 
-Or run it one-shot with:
+Run it directly:
+
+```bash
+tg path/to/doc.md
+```
+
+Or one-shot without a global install:
 
 ```bash
 npx @textagram/tg path/to/diagram.txt
 ```
 
-For development from this monorepo:
+Manual downloads are available from [GitHub Releases](https://github.com/pzoln/tg/releases).
+
+## Run
+
+Start an empty editing session:
 
 ```bash
-cargo run -p tg
+tg
 ```
 
 Open a file-backed editing session with:
 
 ```bash
-cargo run -p tg -- path/to/diagram.txt
+tg path/to/diagram.txt
+
+tg path/to/doc.md # edits the first recognized textagram fence body
 ```
 
 If the file contains a recognized `textagram` fence, `tg` edits the first fence
